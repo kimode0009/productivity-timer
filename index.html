@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>포모도로 + 할일 트래커</title>
+<style>
+  :root {
+    --bg: #1a1b26;
+    --card: #24263a;
+    --card-2: #2c2f47;
+    --text: #e6e6f0;
+    --text-dim: #9295b3;
+    --accent: #ff6b6b;
+    --accent-2: #4ecdc4;
+    --border: #3a3d5c;
+    --work: #ff6b6b;
+    --break: #4ecdc4;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: linear-gradient(160deg, #1a1b26, #14151f);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Malgun Gothic", sans-serif;
+    display: flex;
+    justify-content: center;
+    padding: 32px 16px;
+  }
+  .app {
+    width: 100%;
+    max-width: 920px;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+  @media (min-width: 760px) {
+    .app { grid-template-columns: 340px 1fr; align-items: start; }
+  }
+  h1 {
+    font-size: 20px;
+    margin: 0 0 20px;
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--text);
+  }
+  h1 .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 12px var(--accent); }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 24px;
+  }
+
+  /* Timer */
+  .timer-card { text-align: center; }
+  .mode-switch {
+    display: flex;
+    gap: 8px;
+    background: var(--card-2);
+    padding: 4px;
+    border-radius: 10px;
+    margin-bottom: 24px;
+  }
+  .mode-switch button {
+    flex: 1;
+    border: none;
+    background: transparent;
+    color: var(--text-dim);
+    padding: 8px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+    transition: all .15s;
+  }
+  .mode-switch button.active { background: var(--card); color: var(--text); }
+
+  .ring {
+    position: relative;
+    width: 220px;
+    height: 220px;
+    margin: 0 auto 24px;
+  }
+  .ring svg { transform: rotate(-90deg); width: 100%; height: 100%; }
+  .ring-bg { fill: none; stroke: var(--card-2); stroke-width: 10; }
+  .ring-fg { fill: none; stroke: var(--accent); stroke-width: 10; stroke-linecap: round; transition: stroke-dashoffset 1s linear, stroke .3s; }
+  .ring-time {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+  }
+  .ring-time .t { font-size: 42px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .ring-time .s { font-size: 12px; color: var(--text-dim); margin-top: 4px; letter-spacing: .05em; text-transform: uppercase; }
+
+  .controls { display: flex; gap: 10px; justify-content: center; }
+  .controls button {
+    padding: 12px 24px;
+    border-radius: 10px;
+    border: none;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform .1s, opacity .15s;
+  }
+  .controls button:active { transform: scale(0.96); }
+  .btn-primary { background: var(--accent); color: #1a1b26; }
+  .btn-secondary { background: var(--card-2); color: var(--text); border: 1px solid var(--border) !important; }
+
+  .stats-row {
+    display: flex;
+    justify-content: space-around;
+    margin-top: 24px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+  }
+  .stat { text-align: center; }
+  .stat .n { font-size: 24px; font-weight: 700; color: var(--accent-2); }
+  .stat .l { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
+
+  /* Todo */
+  .todo-card { display: flex; flex-direction: column; min-height: 480px; }
+  .todo-card h2 { margin: 0 0 16px; font-size: 15px; color: var(--text-dim); font-weight: 600; text-transform: uppercase; letter-spacing: .05em; }
+  .todo-input { display: flex; gap: 8px; margin-bottom: 16px; }
+  .todo-input input {
+    flex: 1;
+    background: var(--card-2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 11px 14px;
+    border-radius: 10px;
+    font-size: 14px;
+    outline: none;
+  }
+  .todo-input input:focus { border-color: var(--accent-2); }
+  .todo-input button {
+    background: var(--accent-2);
+    color: #1a1b26;
+    border: none;
+    border-radius: 10px;
+    padding: 0 18px;
+    font-weight: 700;
+    cursor: pointer;
+    font-size: 18px;
+  }
+  .todo-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; overflow-y: auto; max-height: 340px; }
+  .todo-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--card-2);
+    border-radius: 10px;
+    padding: 10px 12px;
+    border: 1px solid transparent;
+  }
+  .todo-item.active-task { border-color: var(--accent); }
+  .todo-item .check {
+    width: 20px; height: 20px; border-radius: 6px;
+    border: 2px solid var(--border);
+    cursor: pointer;
+    flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px;
+  }
+  .todo-item.done .check { background: var(--accent-2); border-color: var(--accent-2); color: #1a1b26; }
+  .todo-item .txt { flex: 1; font-size: 14px; cursor: pointer; }
+  .todo-item.done .txt { text-decoration: line-through; color: var(--text-dim); }
+  .todo-item .pomo-count { font-size: 11px; color: var(--accent); background: rgba(255,107,107,.12); padding: 2px 6px; border-radius: 6px; }
+  .todo-item .del { background: none; border: none; color: var(--text-dim); cursor: pointer; font-size: 16px; padding: 2px 6px; }
+  .todo-item .del:hover { color: var(--accent); }
+  .empty { color: var(--text-dim); font-size: 13px; text-align: center; padding: 40px 0; }
+
+  .focus-hint { font-size: 12px; color: var(--text-dim); margin-top: auto; padding-top: 16px; text-align: center; }
+  .focus-hint b { color: var(--accent-2); }
+</style>
+</head>
+<body>
+<div class="app">
+  <h1><span class="dot"></span> 포모도로 + 할일 트래커</h1>
+
+  <div class="card timer-card">
+    <div class="mode-switch">
+      <button data-mode="work" class="active">집중 25분</button>
+      <button data-mode="short">짧은 휴식 5분</button>
+      <button data-mode="long">긴 휴식 15분</button>
+    </div>
+
+    <div class="ring">
+      <svg viewBox="0 0 220 220">
+        <circle class="ring-bg" cx="110" cy="110" r="100"></circle>
+        <circle class="ring-fg" id="ringFg" cx="110" cy="110" r="100"></circle>
+      </svg>
+      <div class="ring-time">
+        <div class="t" id="timeDisplay">25:00</div>
+        <div class="s" id="modeLabel">집중 시간</div>
+      </div>
+    </div>
+
+    <div class="controls">
+      <button class="btn-primary" id="startBtn">시작</button>
+      <button class="btn-secondary" id="resetBtn">리셋</button>
+    </div>
+
+    <div class="stats-row">
+      <div class="stat"><div class="n" id="todayCount">0</div><div class="l">오늘 뽀모도로</div></div>
+      <div class="stat"><div class="n" id="weekCount">0</div><div class="l">이번 주</div></div>
+      <div class="stat"><div class="n" id="streakCount">0</div><div class="l">연속 일수</div></div>
+    </div>
+  </div>
+
+  <div class="card todo-card">
+    <h2>할 일 목록</h2>
+    <div class="todo-input">
+      <input type="text" id="todoInput" placeholder="할 일을 입력하고 Enter" maxlength="80">
+      <button id="addBtn">+</button>
+    </div>
+    <ul class="todo-list" id="todoList"></ul>
+    <div class="focus-hint">할 일을 클릭해 <b>집중 대상</b>으로 지정하면 완료된 뽀모도로가 그 항목에 기록됩니다.</div>
+  </div>
+</div>
+
+<script>
+(function () {
+  const DURATIONS = { work: 25 * 60, short: 5 * 60, long: 15 * 60 };
+  const LABELS = { work: '집중 시간', short: '짧은 휴식', long: '긴 휴식' };
+  const STORE_KEY = 'pomo_todo_state_v1';
+
+  let state = load() || { todos: [], activeTaskId: null, sessions: [] };
+
+  let mode = 'work';
+  let remaining = DURATIONS.work;
+  let running = false;
+  let timerId = null;
+
+  const ringFg = document.getElementById('ringFg');
+  const CIRC = 2 * Math.PI * 100;
+  ringFg.style.strokeDasharray = CIRC;
+
+  const timeDisplay = document.getElementById('timeDisplay');
+  const modeLabel = document.getElementById('modeLabel');
+  const startBtn = document.getElementById('startBtn');
+  const resetBtn = document.getElementById('resetBtn');
+  const todoInput = document.getElementById('todoInput');
+  const addBtn = document.getElementById('addBtn');
+  const todoList = document.getElementById('todoList');
+  const todayCountEl = document.getElementById('todayCount');
+  const weekCountEl = document.getElementById('weekCount');
+  const streakCountEl = document.getElementById('streakCount');
+
+  document.querySelectorAll('.mode-switch button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (running) { pause(); }
+      document.querySelectorAll('.mode-switch button').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      mode = btn.dataset.mode;
+      remaining = DURATIONS[mode];
+      const colors = { work: '#ff6b6b', short: '#4ecdc4', long: '#4ecdc4' };
+      ringFg.style.stroke = colors[mode];
+      modeLabel.textContent = LABELS[mode];
+      render();
+    });
+  });
+
+  function fmt(sec) {
+    const m = Math.floor(sec / 60).toString().padStart(2, '0');
+    const s = Math.floor(sec % 60).toString().padStart(2, '0');
+    return m + ':' + s;
+  }
+
+  function render() {
+    timeDisplay.textContent = fmt(remaining);
+    const frac = remaining / DURATIONS[mode];
+    ringFg.style.strokeDashoffset = CIRC * (1 - frac);
+    document.title = (running ? fmt(remaining) + ' · ' : '') + '포모도로 + 할일 트래커';
+  }
+
+  function tick() {
+    remaining--;
+    if (remaining <= 0) {
+      completeSession();
+      return;
+    }
+    render();
+  }
+
+  function start() {
+    if (running) return;
+    running = true;
+    startBtn.textContent = '일시정지';
+    timerId = setInterval(tick, 1000);
+  }
+
+  function pause() {
+    running = false;
+    startBtn.textContent = '시작';
+    clearInterval(timerId);
+  }
+
+  function reset() {
+    pause();
+    remaining = DURATIONS[mode];
+    render();
+  }
+
+  function completeSession() {
+    pause();
+    remaining = 0;
+    render();
+    if (mode === 'work') {
+      state.sessions.push({ date: todayStr(), taskId: state.activeTaskId, ts: Date.now() });
+      if (state.activeTaskId) {
+        const t = state.todos.find(t => t.id === state.activeTaskId);
+        if (t) t.pomos = (t.pomos || 0) + 1;
+      }
+      save();
+      renderTodos();
+      renderStats();
+    }
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const o = ctx.createOscillator(); const g = ctx.createGain();
+      o.connect(g); g.connect(ctx.destination);
+      o.frequency.value = 660; g.gain.value = 0.15;
+      o.start(); setTimeout(() => { o.stop(); ctx.close(); }, 400);
+    } catch (e) {}
+    setTimeout(() => { remaining = DURATIONS[mode]; render(); }, 300);
+  }
+
+  startBtn.addEventListener('click', () => running ? pause() : start());
+  resetBtn.addEventListener('click', reset);
+
+  function todayStr() {
+    const d = new Date();
+    return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate();
+  }
+
+  function weekKey(ts) {
+    const d = new Date(ts);
+    const onejan = new Date(d.getFullYear(), 0, 1);
+    const week = Math.ceil((((d - onejan) / 86400000) + onejan.getDay() + 1) / 7);
+    return d.getFullYear() + '-w' + week;
+  }
+
+  function renderStats() {
+    const today = todayStr();
+    const wk = weekKey(Date.now());
+    const todayN = state.sessions.filter(s => s.date === today).length;
+    const weekN = state.sessions.filter(s => weekKey(s.ts) === wk).length;
+
+    const days = new Set(state.sessions.map(s => s.date));
+    let streak = 0;
+    let cursor = new Date();
+    while (true) {
+      const key = cursor.getFullYear() + '-' + (cursor.getMonth() + 1) + '-' + cursor.getDate();
+      if (days.has(key)) { streak++; cursor.setDate(cursor.getDate() - 1); }
+      else break;
+    }
+
+    todayCountEl.textContent = todayN;
+    weekCountEl.textContent = weekN;
+    streakCountEl.textContent = streak;
+  }
+
+  function addTodo(text) {
+    text = text.trim();
+    if (!text) return;
+    state.todos.unshift({ id: 'id' + Date.now() + Math.random().toString(36).slice(2, 6), text, done: false, pomos: 0 });
+    save();
+    renderTodos();
+  }
+
+  addBtn.addEventListener('click', () => { addTodo(todoInput.value); todoInput.value = ''; todoInput.focus(); });
+  todoInput.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { addTodo(todoInput.value); todoInput.value = ''; }
+  });
+
+  function renderTodos() {
+    todoList.innerHTML = '';
+    if (state.todos.length === 0) {
+      todoList.innerHTML = '<div class="empty">아직 할 일이 없어요. 위에 입력해보세요.</div>';
+      return;
+    }
+    state.todos.forEach(t => {
+      const li = document.createElement('li');
+      li.className = 'todo-item' + (t.done ? ' done' : '') + (t.id === state.activeTaskId ? ' active-task' : '');
+      li.innerHTML = `
+        <div class="check">${t.done ? '✓' : ''}</div>
+        <div class="txt">${escapeHtml(t.text)}</div>
+        ${t.pomos ? `<div class="pomo-count">🍅 ${t.pomos}</div>` : ''}
+        <button class="del" title="삭제">✕</button>
+      `;
+      li.querySelector('.check').addEventListener('click', (e) => {
+        e.stopPropagation();
+        t.done = !t.done;
+        save(); renderTodos();
+      });
+      li.querySelector('.txt').addEventListener('click', () => {
+        state.activeTaskId = (state.activeTaskId === t.id) ? null : t.id;
+        save(); renderTodos();
+      });
+      li.querySelector('.del').addEventListener('click', (e) => {
+        e.stopPropagation();
+        state.todos = state.todos.filter(x => x.id !== t.id);
+        if (state.activeTaskId === t.id) state.activeTaskId = null;
+        save(); renderTodos();
+      });
+      todoList.appendChild(li);
+    });
+  }
+
+  function escapeHtml(s) {
+    const d = document.createElement('div');
+    d.textContent = s;
+    return d.innerHTML;
+  }
+
+  function save() {
+    try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch (e) {}
+  }
+  function load() {
+    try { return JSON.parse(localStorage.getItem(STORE_KEY)); } catch (e) { return null; }
+  }
+
+  ringFg.style.stroke = '#ff6b6b';
+  render();
+  renderTodos();
+  renderStats();
+})();
+</script>
+</body>
+</html>
